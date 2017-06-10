@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 
 	neuralNet "github.com/vivalapanda/number_classify_2.0/NeuralNetwork"
 	featLib "github.com/vivalapanda/number_classify_2.0/features"
@@ -51,24 +51,38 @@ func main() {
 
 		// Test it
 		fmt.Println("  Ans    :    NN")
-		wg := &sync.WaitGroup{}
-		wg.Add(len(testSlice))
+
+		successCount := 0
+		totalProcessesed := 0
 
 		for j, input := range testSlice {
-			go func(j int, input []float64) {
-				defer wg.Done()
+			outputSlice, err := nn.Calc(input)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 
-				outputSlice, err := nn.Calc(input)
-				if err != nil {
-					fmt.Println(err.Error())
-					return
+			maxIndex := 0
+			maxVal := 0.0
+			for k, element := range outputSlice {
+				if element > maxVal {
+					maxIndex = k
+					maxVal = element
 				}
+			}
 
-				fmt.Printf("%v    :    %v\n", testExptVal[j], outputSlice)
-			}(j, input)
+			outputSlice = make([]float64, len(outputSlice))
+			outputSlice[maxIndex] = 1
+
+			if reflect.DeepEqual(testExptVal[j], outputSlice) {
+				successCount++
+			}
+
+			totalProcessesed++
 		}
 
-		wg.Wait()
+		fmt.Printf("Hidden Neurons: %v\n", i)
+		fmt.Printf("Accuracy: %%%v", float64(successCount)/float64(totalProcessesed))
 	}
 }
 
@@ -111,6 +125,8 @@ func parseFile(filename string) (imgArrays [][][]int, expectedValues []int) {
 		// Line starts with a space, skip it
 		if tempStrArray[0] == "" {
 			tempStrArray = tempStrArray[1:]
+		} else if tempStrArray[len(tempStrArray)-1] == "" {
+			tempStrArray = tempStrArray[:len(tempStrArray)-1]
 		}
 
 		// Convert the row to ints
